@@ -15,6 +15,7 @@ const server = http.createServer((req, res) => {
             const surveyQuestions = [
                 'What is your favorite color?',
                 'How often do you exercise?',
+                'What is your Name?'
                 // Add more questions as needed
             ];
             res.end(JSON.stringify({ questions: surveyQuestions }));
@@ -40,9 +41,9 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             const surveyResponses = JSON.parse(body);
             // Add logic to summarize responses
-            console.log('Survey Responses:', surveyResponses.responses);
+            console.log('Survey Responses:', surveyResponses.answers);
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ message: 'Survey submitted successfully!' }));
+            res.end(JSON.stringify({ message: `Survey submitted successfully, ${surveyResponses.answers.q2}!` }));
         });
     }
 });
