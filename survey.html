@@ -60,9 +60,10 @@
 
     <h1>Survey Questions</h1>
 
-    <div id="survey-questions"></div>
+
 
     <form id="survey-form">
+        <div id="survey-questions"></div>
         <!-- Form will be dynamically generated here -->
         <input type="submit" value="Submit">
     </form>
@@ -79,7 +80,7 @@
                 // Dynamically generate survey questions
                 questions.forEach((question, index) => {
                     surveyQuestionsDiv.innerHTML += `<p>${question}</p>`;
-                    surveyForm.innerHTML += `<label for="q${index}">Answer for question ${index + 1}:</label><input type="text" id="q${index}" name="q${index}">`;
+                    surveyQuestionsDiv.innerHTML += `<label for="q${index}">Answer for question ${index + 1}:</label><input type="text" id="q${index}" name="q${index}">`;
                 });
             });
 
