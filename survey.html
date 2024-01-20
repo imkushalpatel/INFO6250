@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey App</title>
+</head>
+
+<body>
+
+    <h1>Survey Questions</h1>
+
+    <div id="survey-questions"></div>
+
+    <form id="survey-form">
+        <!-- Form will be dynamically generated here -->
+        <input type="submit" value="Submit">
+    </form>
+
+    <script>
+        // Fetch survey questions from server
+        fetch('/api/questions')
+            .then(response => response.json())
+            .then(data => {
+                const questions = data.questions;
+                const surveyForm = document.getElementById('survey-form');
+                const surveyQuestionsDiv = document.getElementById('survey-questions');
+
+                // Dynamically generate survey questions
+                questions.forEach((question, index) => {
+                    surveyQuestionsDiv.innerHTML += `<p>${question}</p>`;
+                    surveyForm.innerHTML += `<label for="q${index}">Answer for question ${index + 1}:</label><input type="text" id="q${index}" name="responses">`;
+                });
+            });
+
+        // Submit form data to server as JSON
+        document.getElementById('survey-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+            const jsonData = {};
+
+            formData.forEach((value, key) => {
+                jsonData[key] = value;
+            });
+
+            // Send survey responses to server as JSON
+            fetch('/api/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ responses: jsonData }),
+            })
+                .then(response => response.json())
+                .then(responseJson => {
+                    alert(responseJson.message); // Display server response
+                });
+        });
+    </script>
+
+</body>
+
+</html>

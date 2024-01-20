@@ -1,0 +1,11 @@
+{
+  "name": "info6250",
+  "version": "1.0.0",
+  "description": "INFO6250 assignmant and experiments",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Kushal Patel",
+  "license": "ISC"
+}
