@@ -4,7 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Survey App</title>
+    <title>Questionnaire App</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Questionnaire App</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -12,101 +22,170 @@
             margin: 0;
             padding: 0;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             height: 100vh;
         }
 
+        #question-container {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
         h1 {
+            text-align: center;
             color: #333;
         }
 
-        #survey-questions {
+        #question-text {
             margin-bottom: 20px;
         }
 
-        p {
-            margin: 10px 0;
-            color: #555;
+        #answer-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         label {
-            display: block;
-            margin-bottom: 5px;
-            color: #333;
+            margin-bottom: 10px;
+            color: #555;
         }
 
-        input {
-            margin-bottom: 15px;
+        #answer {
             padding: 8px;
-            width: 100%;
-            box-sizing: border-box;
+            margin-bottom: 20px;
+            width: 200px;
         }
 
-        input[type="submit"] {
-            background-color: #4CAF50;
-            color: white;
+        #next-btn {
+            padding: 10px;
+            background-color: #4caf50;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
             cursor: pointer;
         }
 
-        input[type="submit"]:hover {
+        #next-btn:hover {
             background-color: #45a049;
         }
+
+        #review-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            margin-bottom: 10px;
+            color: #555;
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 
 <body>
 
-    <h1>Survey Questions</h1>
+    <div id="question-container">
+        <h1>Questionnaire</h1>
+        <div id="question-text"></div>
+        <div id="answer-form">
+            <label for="answer">Your Answer:</label>
+            <input type="text" id="answer" name="answer">
+            <button id="next-btn" onclick="nextOrFinish()">Next</button>
+        </div>
+    </div>
 
-
-
-    <form id="survey-form">
-        <div id="survey-questions"></div>
-        <!-- Form will be dynamically generated here -->
-        <input type="submit" value="Submit">
-    </form>
+    <div id="review-container">
+        <h1>Review</h1>
+        <ul id="review-text"></ul>
+    </div>
 
     <script>
-        // Fetch survey questions from server
-        fetch('/api/questions')
-            .then(response => response.json())
-            .then(data => {
-                const questions = data.questions;
-                const surveyForm = document.getElementById('survey-form');
-                const surveyQuestionsDiv = document.getElementById('survey-questions');
+        axios.defaults.withCredentials = true;
+        const backendUrl = 'http://127.0.0.1:3000';
+        let currentQuestionIndex = 0;
+        let isDone = false;
+        let review = [];
 
-                // Dynamically generate survey questions
-                questions.forEach((question, index) => {
-                    surveyQuestionsDiv.innerHTML += `<p>${question}</p>`;
-                    surveyQuestionsDiv.innerHTML += `<label for="q${index}">Answer for question ${index + 1}:</label><input type="text" id="q${index}" name="q${index}">`;
-                });
-            });
+        async function getNextQuestion() {
+            try {
+                const response = await axios.get(`${backendUrl}/api/questions`);
+                currentQuestionIndex++;
 
-        // Submit form data to server as JSON
-        document.getElementById('survey-form').addEventListener('submit', function (event) {
-            event.preventDefault();
-            const formData = new FormData(this);
-            const jsonData = {};
+                if (response.data.status) {
+                    isDone = true;
+                    finishQuiz();
+                    // updateButton('Finish');
+                }
+                updateButton(response.data.index + 1 >= response.data.total ? 'Finish' : 'Next');
+                document.getElementById('question-text').innerText = response.data.question;
+            } catch (error) {
+                console.error(error);
+            }
+        }
 
-            formData.forEach((value, key) => {
-                jsonData[key] = value;
-            });
-            // Send survey responses to server as JSON
-            fetch('/api/submit', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+        async function submitAnswer() {
+            const answer = document.getElementById('answer').value;
 
-                body: JSON.stringify({ answers: jsonData }),
-            })
-                .then(response => response.json())
-                .then(responseJson => {
-                    alert(responseJson.message); // Display server response
-                });
-        });
+            try {
+                const response = await axios.post(`${backendUrl}/api/submit`, { answer }
+                );
+
+                isDone = response.data.status;
+                updateButton(response.data.index + 1 >= response.data.total ? 'Finish' : 'Next');
+
+                if (!isDone) {
+                    currentQuestionIndex++;
+                    document.getElementById('question-text').innerText = response.data.question;
+                    document.getElementById('answer').value = '';
+                } else {
+                    finishQuiz();
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function nextOrFinish() {
+            if (isDone) {
+                finishQuiz();
+            } else {
+                submitAnswer();
+            }
+        }
+
+        async function finishQuiz() {
+            getReview();
+            document.getElementById('question-container').style.display = 'none';
+            document.getElementById('answer-form').style.display = 'none';
+            document.getElementById('review-container').style.display = 'block';
+        }
+
+        async function getReview() {
+            try {
+                const response = await axios.get(`${backendUrl}/api/review`);
+                review = response.data.review;
+
+                const reviewTextElement = document.getElementById('review-text');
+                reviewTextElement.innerHTML = review.map((item) => `<li>${item.question}: ${item.answer}</li>`).join('');
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        function updateButton(buttonText) {
+            document.getElementById('next-btn').innerText = buttonText;
+        }
+
+        getNextQuestion();
     </script>
 
 </body>
