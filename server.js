@@ -3,11 +3,15 @@ const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const uuid = require('uuid');
 const mongoose = require('mongoose');
+require('dotenv').config(); // Load environment variables from .env file
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-mongoose.connect('mongodb+srv://imkushalpatel:jATaBa7xMQvCUo7M@cluster0.hofxinc.mongodb.net/info6250');
+mongoose.connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+});
 
 const sessionSchema = new mongoose.Schema({
     _id: String,
@@ -17,10 +21,11 @@ const sessionSchema = new mongoose.Schema({
 
 const Session = mongoose.model('Session', sessionSchema);
 
-const TOKEN_SECRET = 'your-token-secret';
+const TOKEN_SECRET = process.env.TOKEN_SECRET || 'your-default-token-secret';
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
 
 // Middleware to check custom token and set session data
 const tokenMiddleware = async (req, res, next) => {
@@ -31,13 +36,13 @@ const tokenMiddleware = async (req, res, next) => {
             // Verify and decode the token
             const decoded = verifyToken(token);
 
-            // Check token expiration
-            if (Date.now() > decoded.exp * 1000) {
-                return res.status(403).json({ message: 'Token has expired' });
-            }
-
-            // Retrieve session data from MongoDB
+            // Retrieve session data from MongoDB based on the session ID
             const sessionData = await Session.findById(decoded.sessionId).exec();
+
+            // Check token expiration
+            if (!sessionData || Date.now() > sessionData.expires.getTime()) {
+                return res.status(403).json({ message: 'Token has expired or is invalid' });
+            }
 
             // Set session data based on the retrieved data
             req.session = {
@@ -65,25 +70,24 @@ const verifyToken = (token) => {
     }
 
     const decodedPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
-    return { sessionId: decodedPayload.sessionId, exp: decodedPayload.exp };
+    return { sessionId: decodedPayload.sessionId };
 };
 
 // Middleware to create and set the custom token in the Authorization header
 const setTokenMiddleware = async (req, res, next) => {
     const { username } = req.body;
 
-    // Create a custom token with expiration time and signature
+    // Create a custom token with only the session ID
     const sessionId = uuid.v4();
     const payload = {
         sessionId,
-        exp: Math.floor(Date.now() / 1000) + 1800, // Expires in 30 minutes
     };
 
     // Store session data in MongoDB
     const session = new Session({
         _id: sessionId,
         data: { username },
-        expires: new Date(payload.exp * 1000),
+        expires: new Date(Date.now() + 30 * 60 * 1000), // Expires in 30 minutes
     });
     await session.save();
 
@@ -92,31 +96,20 @@ const setTokenMiddleware = async (req, res, next) => {
     const signature = crypto.createHmac('sha256', TOKEN_SECRET).update(`${header}.${payloadBase64}`).digest('base64');
 
     const customToken = `${header}.${payloadBase64}.${signature}`;
-    req.token = customToken;
+
+    // Attach the token to the response object
+    req.customToken = customToken;
 
     next();
 };
 
 app.use(tokenMiddleware);
 
-app.get('/', (req, res) => {
-    res.send('Hello, welcome to the homepage!');
-});
-
-app.get('/profile', (req, res) => {
-    const username = req.session.data.username || 'Guest';
-    res.send(`Welcome, ${username}!`);
-});
-
 app.post('/login', setTokenMiddleware, (req, res) => {
     const { username } = req.body;
 
-    res.json({ message: `Successfully logged in as ${username}`, token: req.token });
-});
-
-app.get('/example-route', (req, res) => {
-    const username = req.session.data.username || 'Guest';
-    res.send(`Welcome, ${username}!`);
+    // Send a response with the success message and attach the token
+    res.json({ message: `Successfully logged in as ${username}`, token: req.customToken });
 });
 
 app.listen(PORT, () => {
