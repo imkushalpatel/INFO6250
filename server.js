@@ -18,7 +18,7 @@ const sessionSchema = new mongoose.Schema({
 
 const Session = mongoose.model('Session', sessionSchema);
 
-const TOKEN_SECRET = process.env.TOKEN_SECRET || 'your-default-token-secret';
+const TOKEN_SECRET = process.env.TOKEN_SECRET;
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -29,10 +29,10 @@ const extendSession = async (sessionId) => {
         const session = await Session.findById(sessionId).exec();
 
         if (session) {
-            // Check if there are 5 minutes or less remaining
+
             const remainingTime = session.expires - Date.now();
             if (remainingTime <= 5 * 60 * 1000) {
-                // Extend the session expiry by 10 minutes
+
                 session.expires = new Date(session.expires.getTime() + 10 * 60 * 1000);
                 await session.save();
                 console.log(`Session extended for session ID: ${sessionId}`);
@@ -136,11 +136,23 @@ app.post('/login', setTokenMiddleware, (req, res) => {
 
 app.get('/profile', (req, res, next) => {
     const username = req.session && req.session.data.username || 'Guest';
-    req.session.data.username = "hello";
+    // req.session.data.username = "hello";
     res.send(`Welcome, ${username}!`);
     next();
 });
 
+app.post('/logout', async (req, res) => {
+    try {
+
+        await Session.findByIdAndDelete(req.session.sessionId).exec();
+
+
+        res.json({ message: 'Logout successful' });
+    } catch (error) {
+        console.error(`Error during logout: ${error.message}`);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
 
 app.use(async (req, res, next) => {
 
